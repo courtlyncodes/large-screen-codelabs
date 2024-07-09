@@ -17,6 +17,7 @@ package com.example.stylus
 
 import android.view.MotionEvent
 import androidx.lifecycle.ViewModel
+import com.example.stylus.data.Segment
 import com.example.stylus.ui.StylusState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +28,8 @@ class StylusViewModel : ViewModel() {
 
     private var _stylusState = MutableStateFlow(StylusState())
     val stylusState: StateFlow<StylusState> = _stylusState
+
+    val openGlLines = mutableListOf<List<Segment>>()
 
     private fun requestRendering(stylusState: StylusState) {
         // will update the stylusState which will trigger a Flow

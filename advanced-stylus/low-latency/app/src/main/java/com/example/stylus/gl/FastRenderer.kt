@@ -23,9 +23,12 @@ import android.view.MotionEvent
 import android.view.SurfaceView
 import android.view.View
 import androidx.annotation.WorkerThread
+import android.graphics.Color
+import androidx.core.graphics.toColor
 import androidx.graphics.lowlatency.BufferInfo
 import androidx.graphics.lowlatency.GLFrontBufferedRenderer
 import androidx.graphics.opengl.egl.EGLManager
+import androidx.input.motionprediction.MotionEventPredictor
 import com.example.stylus.StylusViewModel
 import com.example.stylus.data.Segment
 
@@ -33,10 +36,12 @@ import com.example.stylus.data.Segment
 class FastRenderer(
     private var viewModel: StylusViewModel
 ) : GLFrontBufferedRenderer.Callback<Segment> {
+
     private val mvpMatrix = FloatArray(16)
     private val projection = FloatArray(16)
 
     private var frontBufferRenderer: GLFrontBufferedRenderer<Segment>? = null
+    private var motionEventPredictor: MotionEventPredictor? = null
 
     private var lineRenderer: LineRenderer = LineRenderer()
 
@@ -44,6 +49,9 @@ class FastRenderer(
     private var previousY: Float = 0f
     private var currentX: Float = 0f
     private var currentY: Float = 0f
+
+
+
 
     @WorkerThread // GLThread
     private fun obtainRenderer(): LineRenderer =
@@ -78,6 +86,12 @@ class FastRenderer(
         )
 
         Matrix.multiplyMM(projection, 0, mvpMatrix, 0, transform, 0)
+
+        obtainRenderer().drawLine(
+            projection,
+            listOf(param),
+            Color.MAGENTA.toColor()
+        )
     }
 
     override fun onDrawDoubleBufferedLayer(
@@ -103,10 +117,20 @@ class FastRenderer(
         )
         // perform matrix multiplication to transform the Android data to OpenGL reference
         Matrix.multiplyMM(projection, 0, mvpMatrix, 0, transform, 0)
+
+        GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f)
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+
+        viewModel.openGlLines.add(params.toList())
+
+        for (line in viewModel.openGlLines) {
+            obtainRenderer().drawLine(projection, line, Color.GRAY.toColor())
+        }
     }
 
     fun attachSurfaceView(surfaceView: SurfaceView) {
         frontBufferRenderer = GLFrontBufferedRenderer(surfaceView, this)
+        motionEventPredictor = MotionEventPredictor.newInstance(surfaceView)
     }
 
     fun release() {
@@ -118,18 +142,45 @@ class FastRenderer(
 
     @SuppressLint("ClickableViewAccessibility")
     val onTouchListener = View.OnTouchListener { view, event ->
+        motionEventPredictor?.record(event)
 
         viewModel.updateStylusVisualization(event)
 
         when (event?.action) {
             MotionEvent.ACTION_DOWN -> {
+            view.requestUnbufferedDispatch(event)
 
+            currentX = event.x
+            currentY = event.y
+
+            val segment = Segment(currentX, currentY, currentX, currentY)
+
+            frontBufferRenderer?.renderFrontBufferedLayer(segment)
             }
             MotionEvent.ACTION_MOVE -> {
+                previousX = currentX
+                previousY = currentY
+                currentX = event.x
+                currentY = event.y
+
+                val segment = Segment(currentX, currentY, currentX, currentY)
+
+                frontBufferRenderer?.renderFrontBufferedLayer(segment)
+
+                val motionEventPredicted = motionEventPredictor?.predict()
+                if(motionEventPredicted != null) {
+                    val predictedSegment = Segment(
+                        currentX,
+                        currentY,
+                        motionEventPredicted.x,
+                        motionEventPredicted.y
+                    )
+                    frontBufferRenderer?.renderFrontBufferedLayer(predictedSegment)
+                }
 
             }
             MotionEvent.ACTION_UP -> {
-
+                frontBufferRenderer?.commit()
             }
         }
         true

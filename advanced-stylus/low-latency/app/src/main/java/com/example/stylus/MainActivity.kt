@@ -41,10 +41,12 @@ import com.example.stylus.ui.theme.StylusTheme
 import com.example.stylus.ui.StylusState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.stylus.gl.FastRenderer
+import com.example.stylus.gl.LowLatencySurfaceView
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -61,6 +63,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+       fastRendering = FastRenderer(viewModel)
+
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.stylusState
@@ -71,7 +75,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        fastRendering = FastRenderer(viewModel)
+
 
         setContent {
             StylusTheme {
@@ -91,6 +95,7 @@ class MainActivity : ComponentActivity() {
                             thickness = 1.dp,
                             color = Color.Black,
                         )
+                        DrawAreaLowLatency()
                     }
                 }
             }
@@ -109,4 +114,12 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-}
+
+    @Composable
+    fun DrawAreaLowLatency(modifier: Modifier = Modifier) {
+        AndroidView(factory = { context ->
+            LowLatencySurfaceView(context, fastRenderer = fastRendering)
+        }, modifier = modifier
+            )
+    }
+    }
