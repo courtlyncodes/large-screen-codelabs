@@ -46,7 +46,7 @@ object StylusVisualization {
             )
         )
         drawCircle(
-            Color.DarkGray,
+            Color.LightGray,
             minorRadius,
             Offset(ball.x, ball.y)
         )
